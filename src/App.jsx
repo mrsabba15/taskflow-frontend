@@ -1,23 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 
 
 import Login from "./components/Login";
-import ProtectedRoute from "./components/ProtectedRoute";
-
 import {
   login,
   register,
   verifyOTP,
-  getTasks,
-  createTask as CreateTaskAPI,
-  updateTask,
-  deleteTask as deleteTaskAPI,
 } from "./services/api";
 
-const API_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 function App() {
 
@@ -38,6 +30,7 @@ function App() {
   );
 
   const [message, setMessage] = useState("");
+  const [messageIsSuccess, setMessageIsSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
 
@@ -69,7 +62,16 @@ function App() {
   // GET TASKS
   // ==========================================
 
-  const fetchTasks = async () => {
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("username");
+    setIsLoggedIn(false);
+    setTasks([]);
+    setUsername("");
+    setPassword("");
+  }, []);
+
+  const fetchTasks = useCallback(async () => {
 
     const token = localStorage.getItem("access_token");
 
@@ -102,7 +104,7 @@ function App() {
       console.error(error);
 
     }
-  };
+  }, [handleLogout]);
 
 
   // ==========================================
@@ -111,11 +113,9 @@ function App() {
 
   useEffect(() => {
 
-    if (isLoggedIn) {
-      fetchTasks();
-    }
+    if (isLoggedIn) void Promise.resolve().then(fetchTasks);
 
-  }, [isLoggedIn]);
+  }, [isLoggedIn, fetchTasks]);
 
 
   // ==========================================
@@ -129,13 +129,8 @@ function App() {
 
     setMessage("");
 
-    try {
-
-      // API service se login request
-      const data = await login(
-        loginUsername,
-        loginPassword
-      );
+    // API service se login request
+    const data = await login(loginUsername, loginPassword);
 
       // JWT token save
       localStorage.setItem(
@@ -152,14 +147,8 @@ function App() {
       setUsername(loginUsername);
       setPassword("");
 
-      // Dashboard open
-      setIsLoggedIn(true);
-
-    } catch (error) {
-
-      throw error;
-
-    }
+    // Dashboard open
+    setIsLoggedIn(true);
   };
 
 
@@ -168,12 +157,18 @@ function App() {
   // ==========================================
 
   const handleRegister = async (username, email, password) => {
+    setLoading(true);
+    setMessage("");
+    setMessageIsSuccess(false);
     try {
       await register(username, email, password);
-
+      setUsername(username.trim());
+      setEmail(email.trim());
       setShowOTP(true);
     } catch (error) {
-      alert(error.message);
+      setMessage(error.message || "Could not create account");
+    } finally {
+      setLoading(false);
     }
   };
   // ==========================================
@@ -189,8 +184,8 @@ function App() {
     try {
       await verifyOTP(username, otp);
 
-      alert("OTP verified successfully!");
-
+      setMessage("Email verified. You can now sign in.");
+      setMessageIsSuccess(true);
       setShowOTP(false);
       setOtp("");
       setPassword("");
@@ -198,7 +193,8 @@ function App() {
       setIsLogin(true);
 
     } catch (error) {
-      alert(error.message);
+      setMessage(error.message || "Could not verify OTP");
+      setMessageIsSuccess(false);
     } finally {
       setOtpLoading(false);
     }
@@ -267,7 +263,7 @@ function App() {
 
       setNewTask("");
 
-    } catch (error) {
+    } catch {
 
       alert(
         "Cannot connect to backend."
@@ -338,7 +334,7 @@ function App() {
         )
       );
 
-    } catch (error) {
+    } catch {
 
       alert(
         "Cannot connect to backend."
@@ -437,7 +433,7 @@ function App() {
 
       cancelEdit();
 
-    } catch (error) {
+    } catch {
 
       alert(
         "Cannot connect to backend."
@@ -495,7 +491,7 @@ function App() {
         )
       );
 
-    } catch (error) {
+    } catch {
 
       alert(
         "Cannot connect to backend."
@@ -508,27 +504,6 @@ function App() {
   // ==========================================
   // LOGOUT
   // ==========================================
-
-  const handleLogout = () => {
-
-    localStorage.removeItem(
-      "access_token"
-    );
-
-    localStorage.removeItem(
-      "username"
-    );
-
-    setIsLoggedIn(false);
-
-    setTasks([]);
-
-    setUsername("");
-
-    setPassword("");
-
-  };
-
 
   // ==========================================
   // SEARCH + FILTER
@@ -577,8 +552,6 @@ function App() {
       ).length;
 
     return (
-      <ProtectedRoute>
-
       <div className="dashboard-page">
 
         {/* HEADER */}
@@ -942,7 +915,6 @@ function App() {
         </main>
 
       </div>
-      </ProtectedRoute>
 
     );
   }
@@ -959,6 +931,8 @@ function App() {
       <Login
 
         onLogin={handleLogin}
+        statusMessage={!showOTP ? message : ""}
+        statusIsSuccess={messageIsSuccess}
 
         onShowRegister={() => {
           setIsLogin(false);
@@ -991,8 +965,14 @@ function App() {
             <h1>Verify your account</h1>
 
             <p className="auth-subtitle">
-              Enter the 6-digit OTP shown in the backend terminal
+              Enter the 6-digit code sent to your email
             </p>
+
+            {message && (
+              <div className={messageIsSuccess ? "success-message" : "error-message"} role="status">
+                {message}
+              </div>
+            )}
 
             <div className="input-group">
               <label>OTP</label>

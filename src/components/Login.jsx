@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-function Login({ onLogin, onShowRegister }) {
+function Login({ onLogin, onShowRegister, statusMessage, statusIsSuccess }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -37,6 +37,12 @@ function Login({ onLogin, onShowRegister }) {
         <p className="auth-subtitle">
           Sign in to manage your tasks
         </p>
+
+        {statusMessage && (
+          <div className={statusIsSuccess ? "success-message" : "error-message"} role="status">
+            {statusMessage}
+          </div>
+        )}
 
         {error && (
           <div className="error-message">
